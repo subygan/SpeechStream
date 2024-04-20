@@ -1,6 +1,4 @@
 import collections
-
-import collections
 import json
 import os
 from itertools import combinations

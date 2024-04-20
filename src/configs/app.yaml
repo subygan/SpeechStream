@@ -1,0 +1,27 @@
+database:
+  server_debug: True
+  db_name: language_teacher
+  db_user: langServer
+  db_password: S3cret
+task:
+  broker_url: redis://localhost:6379/0
+  result_backend: redis://localhost:6379/0
+
+nemo:
+  infer_config_file: diar_infer_telephonic.yaml
+
+meta:
+  conf_directory: /app/configs
+
+model_config:
+  stemming: True
+  suppress_numerals: False
+  model_name: "medium.en"
+  batch_size: 8
+  language: null
+  mtypes:
+    cpu: int8
+    cuda: float16
+
+service:
+  debug: True

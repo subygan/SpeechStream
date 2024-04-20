@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+#  langserver:
+#    image: langserver
+#    build:
+#      context: backend
+#      dockerfile: Dockerfile
+#    environment:
+#        - SERVER_DEBUG=True
+#        - DB_NAME=language_teacher
+#        - DB_USER=langServer
+#        - DB_PASSWORD=S3cret
+#        - DB_HOST=localhost
+#        - DB_PORT=5432
+#        - DIARIZATION_HOST=localhost
+#        - DIARIZATION_PORT=5000
+#        - ENV_FILE=/code/env/local_env.yml
+#        - AWS_SHARED_CREDENTIALS_FILE=/run/secrets/aws_credentials
+#    secrets:
+#      - aws_credentials
+#    ports:
+#      - "8000:8000"
+#    volumes:
+#      - "./input:/input"
+#      - "./output:/output"
+#      - "./ref:/ref"
+#      - "./backend:/code"
+#    depends_on:
+#        - pg
+#    network_mode: host
+#
+#  pg:
+#    image: postgres:14-alpine
+#    ports:
+#      - 5432:5432
+#    volumes:
+#      - ./postgres:/var/lib/postgresql/data
+#    environment:
+#      - POSTGRES_DB=language_teacher
+#      - POSTGRES_USER=langServer
+#      - POSTGRES_PASSWORD=S3cret
+#    network_mode: host
+
+  diarization-container:
+    image: diarization
+    ports:
+      - 5000:5000
+    build:
+      context: src
+      dockerfile: Dockerfile
+    environment:
+        - SERVER_DEBUG=True
+        - DB_NAME=language_teacher
+        - DB_USER=langServer
+        - DB_PASSWORD=S3cret
+        - LANG_SERVER_HOST=localhost
+        - LANG_SERVER_PORT=8000
+        - CONFIG_FILE=/app/configs/app.yaml
+    volumes:
+      - "./input:/input"
+    network_mode: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+secrets:
+  aws_credentials:
+    file: ~/.aws/credentials
