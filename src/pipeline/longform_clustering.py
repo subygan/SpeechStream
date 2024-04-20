@@ -1,14 +1,14 @@
 from typing import Dict, List, Tuple
 import torch
 from tqdm import tqdm
-from offline_clustering import (
+from pipeline.offline_clustering import (
     SpeakerClustering,
     get_scale_interpolated_embs,
     getCosAffinityMatrix,
     split_input_data, get_argmin_mat, getAffinityGraphMat, estimateNumofSpeakers, getMinimumConnection,
     isGraphFullyConnected, NMESC,
 )
-from online_clustering import get_merge_quantity, run_reducer
+from pipeline.online_clustering import get_merge_quantity, run_reducer
 
 
 

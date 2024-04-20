@@ -4,11 +4,12 @@ import tempfile
 
 import demucs.separate
 from omegaconf import DictConfig
-
-from helpers import *
+from helpers import wav2vec2_langs, get_words_speaker_mapping, punct_model_langs, \
+    get_realigned_ws_mapping_with_punctuation, get_sentences_speaker_mapping
 from models import ModelsManager
 from nemo_process import NemoDiarizer
 from icecream import ic
+import os
 
 
 class ParallelDiarizer:
@@ -45,14 +46,14 @@ class ParallelDiarizer:
             yield temp_dir
 
     def start_diarize(self):
-        logging.info("Starting diarization process")
+        print("Starting diarization process")
         if self.stemming:
             # Isolate vocals from the rest of the audio
             return_code = demucs.separate.main(
                 ["-n", "htdemucs", "--two-stems=vocals", self.audio_path, "-o", self._work_dir])
 
             if return_code != 0:
-                logging.warning(
+                print(
                     "Source splitting failed, using original audio file."
                 )
                 self.vocal_target = self.audio_path
@@ -66,12 +67,12 @@ class ParallelDiarizer:
         else:
             self.vocal_target = self.audio_path
 
-        logging.info(f'Starting Nemo process with vocal_target: , {self.vocal_target}')
+        print(f'Starting Nemo process with vocal_target: , {self.vocal_target}')
         nemo_thread = NemoDiarizer(self.audio_path, self._work_dir)
         try:
             nemo_thread.start_diarize()
         except Exception as e:
-            logging
+            print(f'error: {e}')
 
         # Transcribe the audio file
         if self.batch_size != 0:
@@ -137,7 +138,7 @@ class ParallelDiarizer:
                     word_dict["word"] = word
 
         else:
-            logging.warning(
+            print(
                 f"Punctuation restoration is not available for {language} language. Using the original punctuation."
             )
 

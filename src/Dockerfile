@@ -22,5 +22,4 @@ RUN wget -q https://api.ngc.nvidia.com/v2/models/nvidia/nemo/vad_multilingual_ma
 # Expose the port on which the Flask app will run
 EXPOSE 5000
 
-# Run Redis and the Celery worker
-CMD ["python", "/app/main.py"]
+CMD ["sleep", "infinity"]

@@ -59,6 +59,7 @@ services:
         - CONFIG_FILE=/app/configs/app.yaml
     volumes:
       - "./input:/input"
+      - "./src:/app"
     network_mode: host
     deploy:
       resources:

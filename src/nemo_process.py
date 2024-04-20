@@ -8,7 +8,6 @@ from pipeline.model import NeuralDiarizer
 import torch.multiprocessing as mp
 
 mp.set_start_method('spawn', force=True)
-logger = logging.getLogger(__name__)
 
 
 class NemoDiarizer:
@@ -24,7 +23,7 @@ class NemoDiarizer:
         sound = AudioSegment.from_file(self.audio_path).set_channels(1)
         sound.export(os.path.join(self._workdir, "mono_file.wav"), format="wav")
 
-        logger.info("Starting diarization")
+        print("Starting diarization")
         # TODO: move this to a config file
         conf = create_config("/app/configs/diar_infer_telephonic.yaml", self._workdir)
         # Initialize NeMo MSDD diarization model

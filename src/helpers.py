@@ -1,14 +1,164 @@
 import json
-import logging
 import os
 import shutil
 
 import nltk
 from omegaconf import OmegaConf
-from whisperx.alignment import DEFAULT_ALIGN_MODELS_HF, DEFAULT_ALIGN_MODELS_TORCH
-from whisperx.utils import LANGUAGES, TO_LANGUAGE_CODE
 
-logger = logging.getLogger()
+DEFAULT_ALIGN_MODELS_TORCH = {
+    "en": "WAV2VEC2_ASR_BASE_960H",
+    "fr": "VOXPOPULI_ASR_BASE_10K_FR",
+    "de": "VOXPOPULI_ASR_BASE_10K_DE",
+    "es": "VOXPOPULI_ASR_BASE_10K_ES",
+    "it": "VOXPOPULI_ASR_BASE_10K_IT",
+}
+
+DEFAULT_ALIGN_MODELS_HF = {
+    "ja": "jonatasgrosman/wav2vec2-large-xlsr-53-japanese",
+    "zh": "jonatasgrosman/wav2vec2-large-xlsr-53-chinese-zh-cn",
+    "nl": "jonatasgrosman/wav2vec2-large-xlsr-53-dutch",
+    "uk": "Yehor/wav2vec2-xls-r-300m-uk-with-small-lm",
+    "pt": "jonatasgrosman/wav2vec2-large-xlsr-53-portuguese",
+    "ar": "jonatasgrosman/wav2vec2-large-xlsr-53-arabic",
+    "cs": "comodoro/wav2vec2-xls-r-300m-cs-250",
+    "ru": "jonatasgrosman/wav2vec2-large-xlsr-53-russian",
+    "pl": "jonatasgrosman/wav2vec2-large-xlsr-53-polish",
+    "hu": "jonatasgrosman/wav2vec2-large-xlsr-53-hungarian",
+    "fi": "jonatasgrosman/wav2vec2-large-xlsr-53-finnish",
+    "fa": "jonatasgrosman/wav2vec2-large-xlsr-53-persian",
+    "el": "jonatasgrosman/wav2vec2-large-xlsr-53-greek",
+    "tr": "mpoyraz/wav2vec2-xls-r-300m-cv7-turkish",
+    "da": "saattrupdan/wav2vec2-xls-r-300m-ftspeech",
+    "he": "imvladikon/wav2vec2-xls-r-300m-hebrew",
+    "vi": 'nguyenvulebinh/wav2vec2-base-vi',
+    "ko": "kresnik/wav2vec2-large-xlsr-korean",
+    "ur": "kingabzpro/wav2vec2-large-xls-r-300m-Urdu",
+    "te": "anuragshas/wav2vec2-large-xlsr-53-telugu",
+    "hi": "theainerd/Wav2Vec2-large-xlsr-hindi",
+    "ca": "softcatala/wav2vec2-large-xlsr-catala",
+    "ml": "gvs/wav2vec2-large-xlsr-malayalam",
+    "no": "NbAiLab/nb-wav2vec2-1b-bokmaal",
+    "nn": "NbAiLab/nb-wav2vec2-300m-nynorsk",
+}
+
+LANGUAGES = {
+    "en": "english",
+    "zh": "chinese",
+    "de": "german",
+    "es": "spanish",
+    "ru": "russian",
+    "ko": "korean",
+    "fr": "french",
+    "ja": "japanese",
+    "pt": "portuguese",
+    "tr": "turkish",
+    "pl": "polish",
+    "ca": "catalan",
+    "nl": "dutch",
+    "ar": "arabic",
+    "sv": "swedish",
+    "it": "italian",
+    "id": "indonesian",
+    "hi": "hindi",
+    "fi": "finnish",
+    "vi": "vietnamese",
+    "he": "hebrew",
+    "uk": "ukrainian",
+    "el": "greek",
+    "ms": "malay",
+    "cs": "czech",
+    "ro": "romanian",
+    "da": "danish",
+    "hu": "hungarian",
+    "ta": "tamil",
+    "no": "norwegian",
+    "th": "thai",
+    "ur": "urdu",
+    "hr": "croatian",
+    "bg": "bulgarian",
+    "lt": "lithuanian",
+    "la": "latin",
+    "mi": "maori",
+    "ml": "malayalam",
+    "cy": "welsh",
+    "sk": "slovak",
+    "te": "telugu",
+    "fa": "persian",
+    "lv": "latvian",
+    "bn": "bengali",
+    "sr": "serbian",
+    "az": "azerbaijani",
+    "sl": "slovenian",
+    "kn": "kannada",
+    "et": "estonian",
+    "mk": "macedonian",
+    "br": "breton",
+    "eu": "basque",
+    "is": "icelandic",
+    "hy": "armenian",
+    "ne": "nepali",
+    "mn": "mongolian",
+    "bs": "bosnian",
+    "kk": "kazakh",
+    "sq": "albanian",
+    "sw": "swahili",
+    "gl": "galician",
+    "mr": "marathi",
+    "pa": "punjabi",
+    "si": "sinhala",
+    "km": "khmer",
+    "sn": "shona",
+    "yo": "yoruba",
+    "so": "somali",
+    "af": "afrikaans",
+    "oc": "occitan",
+    "ka": "georgian",
+    "be": "belarusian",
+    "tg": "tajik",
+    "sd": "sindhi",
+    "gu": "gujarati",
+    "am": "amharic",
+    "yi": "yiddish",
+    "lo": "lao",
+    "uz": "uzbek",
+    "fo": "faroese",
+    "ht": "haitian creole",
+    "ps": "pashto",
+    "tk": "turkmen",
+    "nn": "nynorsk",
+    "mt": "maltese",
+    "sa": "sanskrit",
+    "lb": "luxembourgish",
+    "my": "myanmar",
+    "bo": "tibetan",
+    "tl": "tagalog",
+    "mg": "malagasy",
+    "as": "assamese",
+    "tt": "tatar",
+    "haw": "hawaiian",
+    "ln": "lingala",
+    "ha": "hausa",
+    "ba": "bashkir",
+    "jw": "javanese",
+    "su": "sundanese",
+    "yue": "cantonese",
+}
+
+# language code lookup by name, with a few language aliases
+TO_LANGUAGE_CODE = {
+    **{language: code for code, language in LANGUAGES.items()},
+    "burmese": "my",
+    "valencian": "ca",
+    "flemish": "nl",
+    "haitian": "ht",
+    "letzeburgesch": "lb",
+    "pushto": "ps",
+    "panjabi": "pa",
+    "moldavian": "ro",
+    "moldovan": "ro",
+    "sinhalese": "si",
+    "castilian": "es",
+}
 
 punct_model_langs = [
     "en",
@@ -33,7 +183,7 @@ whisper_langs = sorted(LANGUAGES.keys()) + sorted(
 )
 
 
-def create_config(conf_dir,output_dir):
+def create_config(conf_dir, output_dir):
     # DOMAIN_TYPE = "telephonic"  # Can be meeting, telephonic, or general based on domain type of the audio file
     # CONFIG_LOCAL_DIRECTORY = "nemo_msdd_configs"
     # CONFIG_FILE_NAME = f"diar_infer_{DOMAIN_TYPE}.yaml"
@@ -83,8 +233,9 @@ def create_config(conf_dir,output_dir):
 
     return config
 
+
 def filter_missing_timestamps(
-    word_timestamps, initial_timestamp=0, final_timestamp=None
+        word_timestamps, initial_timestamp=0, final_timestamp=None
 ):
     # handle the first and last word
     if word_timestamps[0].get("start") is None:
@@ -151,10 +302,10 @@ def get_first_word_idx_of_sentence(word_idx, word_list, speaker_list, max_words)
     )
     left_idx = word_idx
     while (
-        left_idx > 0
-        and word_idx - left_idx < max_words
-        and speaker_list[left_idx - 1] == speaker_list[left_idx]
-        and not is_word_sentence_end(left_idx - 1)
+            left_idx > 0
+            and word_idx - left_idx < max_words
+            and speaker_list[left_idx - 1] == speaker_list[left_idx]
+            and not is_word_sentence_end(left_idx - 1)
     ):
         left_idx -= 1
 
@@ -167,9 +318,9 @@ def get_last_word_idx_of_sentence(word_idx, word_list, max_words):
     )
     right_idx = word_idx
     while (
-        right_idx < len(word_list)
-        and right_idx - word_idx < max_words
-        and not is_word_sentence_end(right_idx)
+            right_idx < len(word_list)
+            and right_idx - word_idx < max_words
+            and not is_word_sentence_end(right_idx)
     ):
         right_idx += 1
 
@@ -181,11 +332,11 @@ def get_last_word_idx_of_sentence(word_idx, word_list, max_words):
 
 
 def get_realigned_ws_mapping_with_punctuation(
-    word_speaker_mapping, max_words_in_sentence=50
+        word_speaker_mapping, max_words_in_sentence=50
 ):
     is_word_sentence_end = (
         lambda x: x >= 0
-        and word_speaker_mapping[x]["word"][-1] in sentence_ending_punctuations
+                  and word_speaker_mapping[x]["word"][-1] in sentence_ending_punctuations
     )
     wsp_len = len(word_speaker_mapping)
 
@@ -199,9 +350,9 @@ def get_realigned_ws_mapping_with_punctuation(
     while k < len(word_speaker_mapping):
         line_dict = word_speaker_mapping[k]
         if (
-            k < wsp_len - 1
-            and speaker_list[k] != speaker_list[k + 1]
-            and not is_word_sentence_end(k)
+                k < wsp_len - 1
+                and speaker_list[k] != speaker_list[k + 1]
+                and not is_word_sentence_end(k)
         ):
             left_idx = get_first_word_idx_of_sentence(
                 k, words_list, speaker_list, max_words_in_sentence
@@ -217,14 +368,14 @@ def get_realigned_ws_mapping_with_punctuation(
                 k += 1
                 continue
 
-            spk_labels = speaker_list[left_idx : right_idx + 1]
+            spk_labels = speaker_list[left_idx: right_idx + 1]
             mod_speaker = max(set(spk_labels), key=spk_labels.count)
             if spk_labels.count(mod_speaker) < len(spk_labels) // 2:
                 k += 1
                 continue
 
-            speaker_list[left_idx : right_idx + 1] = [mod_speaker] * (
-                right_idx - left_idx + 1
+            speaker_list[left_idx: right_idx + 1] = [mod_speaker] * (
+                    right_idx - left_idx + 1
             )
             k = right_idx
 
@@ -286,7 +437,7 @@ def get_speaker_aware_transcript(sentences_speaker_mapping, f):
 
 
 def format_timestamp(
-    milliseconds: float, always_include_hours: bool = False, decimal_marker: str = "."
+        milliseconds: float, always_include_hours: bool = False, decimal_marker: str = "."
 ):
     assert milliseconds >= 0, "non-negative timestamp expected"
 
@@ -344,7 +495,7 @@ def _get_next_start_timestamp(word_timestamps, current_word_index, final_timesta
             # if next word doesn't have a start timestamp
             # merge it with the current word and delete it
             word_timestamps[current_word_index]["word"] += (
-                " " + word_timestamps[next_word_index]["word"]
+                    " " + word_timestamps[next_word_index]["word"]
             )
 
             word_timestamps[next_word_index]["word"] = None
@@ -354,8 +505,6 @@ def _get_next_start_timestamp(word_timestamps, current_word_index, final_timesta
 
         else:
             return word_timestamps[next_word_index]["start"]
-
-
 
 
 def cleanup(path: str):
@@ -385,7 +534,7 @@ def process_language_arg(language: str, model_name: str):
 
     if model_name.endswith(".en") and language != "en":
         if language is not None:
-            logging.warning(
+            print(
                 f"{model_name} is an English-only model but received '{language}'; using English instead."
             )
         language = "en"

@@ -1,6 +1,6 @@
 import random
 
-from src.segment import AudioSegment
+from pipeline.segment import AudioSegment
 from tempfile import NamedTemporaryFile
 from typing import List
 

@@ -16,8 +16,8 @@ def run_diarization(job_id, user_id, prompt_template_id, audio_file_path, functi
         pd = ParallelDiarizer(audio_file_path, job_id, user_id, prompt_template_id, conf, models, function_mode)
         pd.start_diarize()
     except Exception as e:
-        ic("Something!!",e)
+        ic( e)
 
 
 if __name__ == "__main__":
-    run_diarization()
+    run_diarization(0, 0, 0, "/input/audio_record_1372.wav", "")

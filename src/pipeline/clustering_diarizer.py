@@ -1,17 +1,3 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-import gc
 import json
 import os
 import pickle as pkl
@@ -26,11 +12,11 @@ from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.utilities import rank_zero_only
 from tqdm import tqdm
 
-from der import score_labels
+from pipeline.der import score_labels
 from nemo.collections.asr.models.classification_models import EncDecClassificationModel
 from nemo.collections.asr.models.label_models import EncDecSpeakerLabelModel
 from nemo.collections.asr.parts.mixins.mixins import DiarizationMixin
-from speaker_utils import (
+from pipeline.speaker_utils import (
     audio_rttm_map,
     get_embs_and_timestamps,
     get_uniqname_from_filepath,
@@ -40,8 +26,7 @@ from speaker_utils import (
     validate_vad_manifest,
     write_rttm2manifest, labels_to_pyannote_object, labels_to_rttmfile, rttm_to_labels,
 )
-from src.longform_clustering import LongFormSpeakerClustering
-from vad_utils import (
+from pipeline.vad_utils import (
     generate_overlap_vad_seq,
     generate_vad_segment_table,
     get_vad_stream_status,
@@ -579,35 +564,6 @@ def get_contiguous_stamps(stamps):
     return contiguous_stamps
 
 
-def generate_cluster_labels(segment_ranges: List[str], cluster_labels: List[int]):
-    """
-    Generate cluster (speaker labels) from the segment_range list and cluster label list.
-
-    Args:
-        segment_ranges (list):
-            List containing intervals (start and end timestapms, ranges) of each segment
-        cluster_labels (list):
-            List containing a cluster label sequence
-
-    Returns:
-        diar_hyp (list):
-            List containing merged speaker-turn-level timestamps and labels in string format
-            Example:
-                >>>  diar_hyp = ['0.0 4.375 speaker_1', '4.375 5.125 speaker_0', ...]
-
-        lines (list)
-            List containing raw segment-level timestamps and labels in raw digits
-                >>>  diar_hyp = ['0.0 0.25 speaker_1', '0.25 0.5 speaker_1', ..., '4.125 4.375 speaker_1']
-    """
-    lines = []
-    for idx, label in enumerate(cluster_labels):
-        tag = 'speaker_' + str(label)
-        stt, end = segment_ranges[idx]
-        lines.append(f"{stt} {end} {tag}")
-    cont_lines = get_contiguous_stamps(lines)
-    diar_hyp = merge_stamps(cont_lines)
-    return diar_hyp, lines
-
 
 def merge_stamps(lines):
     """
@@ -627,6 +583,3 @@ def merge_stamps(lines):
     overlap_stamps.append(start + " " + end + " " + speaker)
 
     return overlap_stamps
-
-
-

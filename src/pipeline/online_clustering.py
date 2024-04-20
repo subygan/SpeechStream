@@ -2,7 +2,7 @@ from typing import Tuple, List
 
 import torch
 
-from src.offline_clustering import getCosAffinityMatrix
+from pipeline.offline_clustering import getCosAffinityMatrix
 
 
 def calculate_removable_counts(removable_counts_mat: torch.Tensor, remain_count: int, num_clus: int) -> torch.Tensor:

@@ -22,17 +22,17 @@ from tqdm import tqdm
 from nemo.collections.asr.data.audio_to_diar_label import AudioToSpeechMSDDInferDataset, AudioToSpeechMSDDTrainDataset
 from nemo.collections.asr.metrics.der import score_labels
 from nemo.collections.asr.metrics.multi_binary_acc import MultiBinaryAccuracy
-from clustering_diarizer import ClusteringDiarizer
+from pipeline.clustering_diarizer import ClusteringDiarizer
 from nemo.collections.asr.models.clustering_diarizer import (
     _MODEL_CONFIG_YAML,
     _SPEAKER_MODEL,
     _VAD_MODEL,
 )
 
-from diarizer_config import NeuralDiarizerInferenceConfig
+from pipeline.diarizer_config import NeuralDiarizerInferenceConfig
 from nemo.collections.asr.models.label_models import EncDecSpeakerLabelModel
 from nemo.collections.asr.parts.preprocessing.features import WaveformFeaturizer
-from speaker_utils import (
+from pipeline.speaker_utils import (
     audio_rttm_map,
     get_embs_and_timestamps,
     get_id_tup_dict,
@@ -43,7 +43,7 @@ from speaker_utils import (
     parse_scale_configs,
     rttm_to_labels,
 )
-from core import ModelPT
+from pipeline.core import ModelPT
 from nemo.core.classes.common import PretrainedModelInfo, typecheck
 from nemo.core.neural_types import AudioSignal, LengthsType, NeuralType
 from nemo.core.neural_types.elements import ProbsType
