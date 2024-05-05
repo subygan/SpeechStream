@@ -43,7 +43,7 @@ services:
 #    network_mode: host
 
   diarization-container:
-    image: diarization
+    image: diarization-exp
     ports:
       - 5000:5000
     build:

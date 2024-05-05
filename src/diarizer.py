@@ -18,6 +18,8 @@ class ParallelDiarizer:
                  models: ModelsManager,
                  function_mode: str = None
                  ):
+        ic("!!!!!")
+        ic(audio_path)
         self.function_mode = function_mode
         self.audio_path: str = audio_path
         self.task_id: int = job_id
@@ -48,13 +50,14 @@ class ParallelDiarizer:
     def start_diarize(self):
         print("Starting diarization process")
         if self.stemming:
+            # TODO: Suriya is this something we need? Demucs only separates musical instruments and voice. Could this be more robust?
             # Isolate vocals from the rest of the audio
             return_code = demucs.separate.main(
                 ["-n", "htdemucs", "--two-stems=vocals", self.audio_path, "-o", self._work_dir])
 
             if return_code != 0:
                 print(
-                    "Source splitting failed, using original audio file."
+                    "Source splitting with htdemucs failed, using original audio file."
                 )
                 self.vocal_target = self.audio_path
             else:
@@ -141,7 +144,7 @@ class ParallelDiarizer:
             print(
                 f"Punctuation restoration is not available for {language} language. Using the original punctuation."
             )
-
+        ic("here")
         wsm = get_realigned_ws_mapping_with_punctuation(wsm)
         ssm = get_sentences_speaker_mapping(wsm, speaker_ts)
 

@@ -6,7 +6,7 @@ from typing import Any, Dict, Iterable, List, Optional, Union
 
 import pandas as pd
 
-from nemo.collections.common.parts.preprocessing import manifest, parsers
+from pipeline.common.preprocessing import manifest, parsers
 
 
 class _Collection(collections.UserList):
@@ -82,22 +82,22 @@ class AudioText(_Collection):
     )
 
     def __init__(
-            self,
-            ids: List[int],
-            audio_files: List[str],
-            durations: List[float],
-            texts: List[str],
-            offsets: List[str],
-            speakers: List[Optional[int]],
-            orig_sampling_rates: List[Optional[int]],
-            token_labels: List[Optional[int]],
-            langs: List[Optional[str]],
-            parser: parsers.CharParser,
-            min_duration: Optional[float] = None,
-            max_duration: Optional[float] = None,
-            max_number: Optional[int] = None,
-            do_sort_by_duration: bool = False,
-            index_by_file_id: bool = False,
+        self,
+        ids: List[int],
+        audio_files: List[str],
+        durations: List[float],
+        texts: List[str],
+        offsets: List[str],
+        speakers: List[Optional[int]],
+        orig_sampling_rates: List[Optional[int]],
+        token_labels: List[Optional[int]],
+        langs: List[Optional[str]],
+        parser: parsers.CharParser,
+        min_duration: Optional[float] = None,
+        max_duration: Optional[float] = None,
+        max_number: Optional[int] = None,
+        do_sort_by_duration: bool = False,
+        index_by_file_id: bool = False,
     ):
         """Instantiates audio-text manifest with filters and preprocessing.
 
@@ -124,7 +124,7 @@ class AudioText(_Collection):
             self.mapping = {}
 
         for id_, audio_file, duration, offset, text, speaker, orig_sr, token_labels, lang in zip(
-                ids, audio_files, durations, offsets, texts, speakers, orig_sampling_rates, token_labels, langs
+            ids, audio_files, durations, offsets, texts, speakers, orig_sampling_rates, token_labels, langs
         ):
             # Duration filters.
             if min_duration is not None and duration < min_duration:
@@ -193,22 +193,22 @@ class VideoText(_Collection):
     )
 
     def __init__(
-            self,
-            ids: List[int],
-            video_files: List[str],
-            durations: List[float],
-            texts: List[str],
-            offsets: List[str],
-            speakers: List[Optional[int]],
-            orig_sampling_rates: List[Optional[int]],
-            token_labels: List[Optional[int]],
-            langs: List[Optional[str]],
-            parser: parsers.CharParser,
-            min_duration: Optional[float] = None,
-            max_duration: Optional[float] = None,
-            max_number: Optional[int] = None,
-            do_sort_by_duration: bool = False,
-            index_by_file_id: bool = False,
+        self,
+        ids: List[int],
+        video_files: List[str],
+        durations: List[float],
+        texts: List[str],
+        offsets: List[str],
+        speakers: List[Optional[int]],
+        orig_sampling_rates: List[Optional[int]],
+        token_labels: List[Optional[int]],
+        langs: List[Optional[str]],
+        parser: parsers.CharParser,
+        min_duration: Optional[float] = None,
+        max_duration: Optional[float] = None,
+        max_number: Optional[int] = None,
+        do_sort_by_duration: bool = False,
+        index_by_file_id: bool = False,
     ):
         """Instantiates video-text manifest with filters and preprocessing.
 
@@ -235,7 +235,7 @@ class VideoText(_Collection):
             self.mapping = {}
 
         for id_, video_file, duration, offset, text, speaker, orig_sr, token_labels, lang in zip(
-                ids, video_files, durations, offsets, texts, speakers, orig_sampling_rates, token_labels, langs
+            ids, video_files, durations, offsets, texts, speakers, orig_sampling_rates, token_labels, langs
         ):
             # Duration filters.
             if min_duration is not None and duration < min_duration:
@@ -367,19 +367,19 @@ class ASRVideoText(VideoText):
 class SpeechLabel(_Collection):
     """List of audio-label correspondence with preprocessing."""
 
-    OUTPUT_TYPE = collections.namedtuple(typename='SpeechLabelEntity', field_names='audio_file duration label offset', )
+    OUTPUT_TYPE = collections.namedtuple(typename='SpeechLabelEntity', field_names='audio_file duration label offset',)
 
     def __init__(
-            self,
-            audio_files: List[str],
-            durations: List[float],
-            labels: List[Union[int, str]],
-            offsets: List[Optional[float]],
-            min_duration: Optional[float] = None,
-            max_duration: Optional[float] = None,
-            max_number: Optional[int] = None,
-            do_sort_by_duration: bool = False,
-            index_by_file_id: bool = False,
+        self,
+        audio_files: List[str],
+        durations: List[float],
+        labels: List[Union[int, str]],
+        offsets: List[Optional[float]],
+        min_duration: Optional[float] = None,
+        max_duration: Optional[float] = None,
+        max_number: Optional[int] = None,
+        do_sort_by_duration: bool = False,
+        index_by_file_id: bool = False,
     ):
         """Instantiates audio-label manifest with filters and preprocessing.
 
@@ -439,13 +439,13 @@ class ASRSpeechLabel(SpeechLabel):
     """`SpeechLabel` collector from structured json files."""
 
     def __init__(
-            self,
-            manifests_files: Union[str, List[str]],
-            is_regression_task=False,
-            cal_labels_occurrence=False,
-            delimiter=None,
-            *args,
-            **kwargs,
+        self,
+        manifests_files: Union[str, List[str]],
+        is_regression_task=False,
+        cal_labels_occurrence=False,
+        delimiter=None,
+        *args,
+        **kwargs,
     ):
         """Parse lists of audio files, durations and transcripts texts.
 
@@ -517,15 +517,14 @@ class ASRSpeechLabel(SpeechLabel):
 class FeatureSequenceLabel(_Collection):
     """List of feature sequence of label correspondence with preprocessing."""
 
-    OUTPUT_TYPE = collections.namedtuple(typename='FeatureSequenceLabelEntity',
-                                              field_names='feature_file seq_label', )
+    OUTPUT_TYPE = collections.namedtuple(typename='FeatureSequenceLabelEntity', field_names='feature_file seq_label',)
 
     def __init__(
-            self,
-            feature_files: List[str],
-            seq_labels: List[str],
-            max_number: Optional[int] = None,
-            index_by_file_id: bool = False,
+        self,
+        feature_files: List[str],
+        seq_labels: List[str],
+        max_number: Optional[int] = None,
+        index_by_file_id: bool = False,
     ):
         """Instantiates feature-SequenceLabel manifest with filters and preprocessing.
 
@@ -600,8 +599,7 @@ class ASRFeatureSequenceLabel(FeatureSequenceLabel):
     """`FeatureSequenceLabel` collector from asr structured json files."""
 
     def __init__(
-            self, manifests_files: Union[str, List[str]], max_number: Optional[int] = None,
-            index_by_file_id: bool = False,
+        self, manifests_files: Union[str, List[str]], max_number: Optional[int] = None, index_by_file_id: bool = False,
     ):
 
         """Parse lists of feature files and sequences of labels.
@@ -642,7 +640,7 @@ class ASRFeatureSequenceLabel(FeatureSequenceLabel):
                 f"Manifest file has invalid json line " f"structure: {line} without proper seq_label key."
             )
 
-        item = dict(feature_file=item['feature_file'], seq_label=item['seq_label'], )
+        item = dict(feature_file=item['feature_file'], seq_label=item['seq_label'],)
 
         return item
 
@@ -656,18 +654,18 @@ class DiarizationLabel(_Collection):
     )
 
     def __init__(
-            self,
-            audio_files: List[str],
-            durations: List[float],
-            rttm_files: List[str],
-            offsets: List[float],
-            target_spks_list: List[tuple],
-            sess_spk_dicts: List[Dict],
-            clus_spk_list: List[tuple],
-            rttm_spk_list: List[tuple],
-            max_number: Optional[int] = None,
-            do_sort_by_duration: bool = False,
-            index_by_file_id: bool = False,
+        self,
+        audio_files: List[str],
+        durations: List[float],
+        rttm_files: List[str],
+        offsets: List[float],
+        target_spks_list: List[tuple],
+        sess_spk_dicts: List[Dict],
+        clus_spk_list: List[tuple],
+        rttm_spk_list: List[tuple],
+        max_number: Optional[int] = None,
+        do_sort_by_duration: bool = False,
+        index_by_file_id: bool = False,
     ):
         """Instantiates audio-label manifest with filters and preprocessing.
 
@@ -705,14 +703,14 @@ class DiarizationLabel(_Collection):
             audio_files, durations, rttm_files, offsets, target_spks_list, sess_spk_dicts, clus_spk_list, rttm_spk_list
         )
         for (
-                audio_file,
-                duration,
-                rttm_file,
-                offset,
-                target_spks,
-                sess_spk_dict,
-                clus_spk_digits,
-                rttm_spk_digits,
+            audio_file,
+            duration,
+            rttm_file,
+            offset,
+            target_spks,
+            sess_spk_dict,
+            clus_spk_digits,
+            rttm_spk_digits,
         ) in zipped_items:
 
             if duration is None:
@@ -757,15 +755,15 @@ class DiarizationSpeechLabel(DiarizationLabel):
     """`DiarizationLabel` diarization data sample collector from structured json files."""
 
     def __init__(
-            self,
-            manifests_files: Union[str, List[str]],
-            emb_dict: Dict,
-            clus_label_dict: Dict,
-            round_digit=2,
-            seq_eval_mode=False,
-            pairwise_infer=False,
-            *args,
-            **kwargs,
+        self,
+        manifests_files: Union[str, List[str]],
+        emb_dict: Dict,
+        clus_label_dict: Dict,
+        round_digit=2,
+        seq_eval_mode=False,
+        pairwise_infer=False,
+        *args,
+        **kwargs,
     ):
         """
         Parse lists of audio files, durations, RTTM (Diarization annotation) files. Since diarization model infers only
@@ -930,15 +928,15 @@ class Audio(_Collection):
     OUTPUT_TYPE = collections.namedtuple(typename='Audio', field_names='audio_files duration offset text')
 
     def __init__(
-            self,
-            audio_files_list: List[Dict[str, str]],
-            duration_list: List[float],
-            offset_list: List[float],
-            text_list: List[str],
-            min_duration: Optional[float] = None,
-            max_duration: Optional[float] = None,
-            max_number: Optional[int] = None,
-            do_sort_by_duration: bool = False,
+        self,
+        audio_files_list: List[Dict[str, str]],
+        duration_list: List[float],
+        offset_list: List[float],
+        text_list: List[str],
+        min_duration: Optional[float] = None,
+        max_duration: Optional[float] = None,
+        max_number: Optional[int] = None,
+        do_sort_by_duration: bool = False,
     ):
         """Instantiantes an list of audio files.
 
@@ -990,7 +988,7 @@ class AudioCollection(Audio):
     """
 
     def __init__(
-            self, manifest_files: Union[str, List[str]], audio_to_manifest_key: Dict[str, str], *args, **kwargs,
+        self, manifest_files: Union[str, List[str]], audio_to_manifest_key: Dict[str, str], *args, **kwargs,
     ):
         """Instantiates a list of audio files loaded from a manifest file.
 
@@ -1032,7 +1030,6 @@ class AudioCollection(Audio):
         Returns:
             Dictionary with audio_files, duration, and offset.
         """
-
         # Local utility function
         def get_audio_file(item: Dict, manifest_key: Union[str, List[str]]):
             """Get item[key] if key is string, or a list
@@ -1105,18 +1102,18 @@ class AudioCollection(Audio):
 class FeatureLabel(_Collection):
     """List of feature sequence and their label correspondence with preprocessing."""
 
-    OUTPUT_TYPE = collections.namedtuple(typename='FeatureLabelEntity', field_names='feature_file label duration', )
+    OUTPUT_TYPE = collections.namedtuple(typename='FeatureLabelEntity', field_names='feature_file label duration',)
 
     def __init__(
-            self,
-            feature_files: List[str],
-            labels: List[str],
-            durations: List[float],
-            min_duration: Optional[float] = None,
-            max_duration: Optional[float] = None,
-            max_number: Optional[int] = None,
-            do_sort_by_duration: bool = False,
-            index_by_file_id: bool = False,
+        self,
+        feature_files: List[str],
+        labels: List[str],
+        durations: List[float],
+        min_duration: Optional[float] = None,
+        max_duration: Optional[float] = None,
+        max_number: Optional[int] = None,
+        do_sort_by_duration: bool = False,
+        index_by_file_id: bool = False,
     ):
         """Instantiates feature-SequenceLabel manifest with filters and preprocessing.
 
@@ -1174,13 +1171,13 @@ class ASRFeatureLabel(FeatureLabel):
     """`FeatureLabel` collector from asr structured json files."""
 
     def __init__(
-            self,
-            manifests_files: Union[str, List[str]],
-            is_regression_task: bool = False,
-            cal_labels_occurrence: bool = False,
-            delimiter: Optional[str] = None,
-            *args,
-            **kwargs,
+        self,
+        manifests_files: Union[str, List[str]],
+        is_regression_task: bool = False,
+        cal_labels_occurrence: bool = False,
+        delimiter: Optional[str] = None,
+        *args,
+        **kwargs,
     ):
 
         """Parse lists of feature files and sequences of labels.
@@ -1246,23 +1243,23 @@ class FeatureText(_Collection):
     )
 
     def __init__(
-            self,
-            ids: List[int],
-            feature_files: List[str],
-            rttm_files: List[str],
-            durations: List[float],
-            texts: List[str],
-            offsets: List[str],
-            speakers: List[Optional[int]],
-            orig_sampling_rates: List[Optional[int]],
-            token_labels: List[Optional[int]],
-            langs: List[Optional[str]],
-            parser: parsers.CharParser,
-            min_duration: Optional[float] = None,
-            max_duration: Optional[float] = None,
-            max_number: Optional[int] = None,
-            do_sort_by_duration: bool = False,
-            index_by_file_id: bool = False,
+        self,
+        ids: List[int],
+        feature_files: List[str],
+        rttm_files: List[str],
+        durations: List[float],
+        texts: List[str],
+        offsets: List[str],
+        speakers: List[Optional[int]],
+        orig_sampling_rates: List[Optional[int]],
+        token_labels: List[Optional[int]],
+        langs: List[Optional[str]],
+        parser: parsers.CharParser,
+        min_duration: Optional[float] = None,
+        max_duration: Optional[float] = None,
+        max_number: Optional[int] = None,
+        do_sort_by_duration: bool = False,
+        index_by_file_id: bool = False,
     ):
         """Instantiates feature-text manifest with filters and preprocessing.
 
@@ -1290,16 +1287,16 @@ class FeatureText(_Collection):
             self.mapping = {}
 
         for id_, feat_file, rttm_file, duration, offset, text, speaker, orig_sr, token_labels, lang in zip(
-                ids,
-                feature_files,
-                rttm_files,
-                durations,
-                offsets,
-                texts,
-                speakers,
-                orig_sampling_rates,
-                token_labels,
-                langs,
+            ids,
+            feature_files,
+            rttm_files,
+            durations,
+            offsets,
+            texts,
+            speakers,
+            orig_sampling_rates,
+            token_labels,
+            langs,
         ):
             # Duration filters.
             if min_duration is not None and duration < min_duration:

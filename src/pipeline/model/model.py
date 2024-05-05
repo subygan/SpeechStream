@@ -19,19 +19,19 @@ from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.utilities import rank_zero_only
 from tqdm import tqdm
 
-from nemo.collections.asr.data.audio_to_diar_label import AudioToSpeechMSDDInferDataset, AudioToSpeechMSDDTrainDataset
-from nemo.collections.asr.metrics.der import score_labels
-from nemo.collections.asr.metrics.multi_binary_acc import MultiBinaryAccuracy
+from pipeline.asr.data.audio_to_diar_label import AudioToSpeechMSDDInferDataset, AudioToSpeechMSDDTrainDataset
+from pipeline.asr.metrics.der import score_labels
+from pipeline.asr.metrics.multi_binary_acc import MultiBinaryAccuracy
 from pipeline.clustering_diarizer import ClusteringDiarizer
-from nemo.collections.asr.models.clustering_diarizer import (
+from pipeline.asr.models.clustering_diarizer import (
     _MODEL_CONFIG_YAML,
     _SPEAKER_MODEL,
     _VAD_MODEL,
 )
 
 from pipeline.diarizer_config import NeuralDiarizerInferenceConfig
-from nemo.collections.asr.models.label_models import EncDecSpeakerLabelModel
-from nemo.collections.asr.parts.preprocessing.features import WaveformFeaturizer
+from pipeline.asr.models.label_models import EncDecSpeakerLabelModel
+from pipeline.asr.preprocessing.features import WaveformFeaturizer
 from pipeline.speaker_utils import (
     audio_rttm_map,
     get_embs_and_timestamps,
@@ -43,10 +43,10 @@ from pipeline.speaker_utils import (
     parse_scale_configs,
     rttm_to_labels,
 )
-from pipeline.core import ModelPT
-from nemo.core.classes.common import PretrainedModelInfo, typecheck
-from nemo.core.neural_types import AudioSignal, LengthsType, NeuralType
-from nemo.core.neural_types.elements import ProbsType
+from pipeline.core_classes.model import ModelPT
+from pipeline.core_classes.common import PretrainedModelInfo, typecheck
+from pipeline.neural_types import AudioSignal, LengthsType, NeuralType
+from pipeline.neural_types.elements import ProbsType
 
 try:
     from torch.cuda.amp import autocast
@@ -992,9 +992,9 @@ class NeuralDiarizer(LightningModule):
 
         """Assign dictionaries containing the clustering results from the class instance `cluster_embeddings`.
         """
-        self.msdd_model.emb_sess_test_dict = self.cluster_embeddings.emb_sess_test_dict
-        self.msdd_model.clus_test_label_dict = self.cluster_embeddings.clus_test_label_dict
-        self.msdd_model.emb_seq_test = self.cluster_embeddings.emb_seq_test
+        self.msdd_model.emb_sess_test_dict = self.clustering_embedding.emb_sess_test_dict
+        self.msdd_model.clus_test_label_dict = self.clustering_embedding.clus_test_label_dict
+        self.msdd_model.emb_seq_test = self.clustering_embedding.emb_seq_test
 
     def transfer_diar_params_to_model_params(self, msdd_model, cfg):
         """

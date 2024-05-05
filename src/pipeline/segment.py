@@ -7,7 +7,7 @@ import librosa
 import numpy as np
 import soundfile as sf
 
-from nemo.collections.asr.parts.utils.audio_utils import select_channels
+from pipeline.asr.utils.audio_utils import select_channels
 
 
 HAVE_PYDUB = True

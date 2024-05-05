@@ -16,19 +16,16 @@ from omegaconf import DictConfig, OmegaConf, open_dict
 from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.utilities import model_summary, rank_zero_only
 
-from nemo import package_info
-from nemo.core import optim
-from nemo.core.classes.common import Model
-from nemo.core.connectors.save_restore_connector import SaveRestoreConnector
-from nemo.core.optim import prepare_lr_scheduler
-from nemo.utils import model_utils
-from nemo.utils.app_state import AppState
-from nemo.utils.debug_hook import register_debug_hooks
-from nemo.utils.exceptions import NeMoBaseException
-from nemo.utils.get_rank import get_rank, is_global_rank_zero
+from pipeline import optim
+from pipeline.core_classes.common import Model
+from pipeline.connectors.save_restore_connector import SaveRestoreConnector
+from pipeline.utils import model_utils
+from pipeline.utils.app_state import AppState
+from pipeline.utils.debug_hook import register_debug_hooks
+from pipeline.utils.exceptions import NeMoBaseException
+from pipeline.utils.get_rank import get_rank, is_global_rank_zero
 
 __all__ = ['ModelPT']
-
 
 # multiple interpolated values in the config
 OmegaConf.register_new_resolver("multiply", lambda x, y: x * y, replace=True)
@@ -98,10 +95,6 @@ class ModelPT(LightningModule, Model):
             cfg.target = "{0}.{1}".format(self.__class__.__module__, self.__class__.__name__)
             OmegaConf.set_struct(cfg, True)
 
-        if 'nemo_version' not in cfg:
-            with open_dict(cfg):
-                cfg.nemo_version = package_info.__version__
-
         self._cfg = cfg
 
         # init mapping submodule attribute -> config_field for nested NeMo models
@@ -128,23 +121,23 @@ class ModelPT(LightningModule, Model):
             # Setup data loaders now (default) or defer setup to `self.setup()`
             # if `defer_setup` is set in the config of the corresponding dataloader.
             if (
-                'train_ds' in self._cfg
-                and self._cfg.train_ds is not None
-                and not self._cfg.train_ds.get('defer_setup', False)
+                    'train_ds' in self._cfg
+                    and self._cfg.train_ds is not None
+                    and not self._cfg.train_ds.get('defer_setup', False)
             ):
                 self.setup_training_data(self._cfg.train_ds)
 
             if (
-                'validation_ds' in self._cfg
-                and self._cfg.validation_ds is not None
-                and not self._cfg.validation_ds.get('defer_setup', False)
+                    'validation_ds' in self._cfg
+                    and self._cfg.validation_ds is not None
+                    and not self._cfg.validation_ds.get('defer_setup', False)
             ):
                 self.setup_multiple_validation_data(val_data_config=cfg.validation_ds)
 
             if (
-                'test_ds' in self._cfg
-                and self._cfg.test_ds is not None
-                and not self._cfg.test_ds.get('defer_setup', False)
+                    'test_ds' in self._cfg
+                    and self._cfg.test_ds is not None
+                    and not self._cfg.test_ds.get('defer_setup', False)
             ):
                 self.setup_multiple_test_data(test_data_config=cfg.test_ds)
 
@@ -194,7 +187,7 @@ class ModelPT(LightningModule, Model):
         return super().on_fit_start()
 
     def register_artifact(
-        self, config_path: str, src: str, verify_src_exists: bool = True,
+            self, config_path: str, src: str, verify_src_exists: bool = True,
     ):
         """ Register model artifacts with this function. These artifacts (files) will be included inside .nemo file
             when model.save_to("mymodel.nemo") is called.
@@ -258,10 +251,10 @@ class ModelPT(LightningModule, Model):
         """Returns True if it has artifacts or any of the submodules have artifacts"""
         for module in self.modules():
             if (
-                isinstance(module, ModelPT)
-                and hasattr(module, 'artifacts')
-                and module.artifacts is not None
-                and len(module.artifacts) > 0
+                    isinstance(module, ModelPT)
+                    and hasattr(module, 'artifacts')
+                    and module.artifacts is not None
+                    and len(module.artifacts) > 0
             ):
                 return True
         return False
@@ -315,7 +308,7 @@ class ModelPT(LightningModule, Model):
         self._nemo_submodule_name_to_config_field[name] = config_field
 
     def named_nemo_modules(
-        self, prefix_name: str = "", prefix_config: str = ""
+            self, prefix_name: str = "", prefix_config: str = ""
     ) -> Iterator[Tuple[str, str, "ModelPT"]]:
         """
         Returns an iterator over all NeMo submodules recursively, yielding
@@ -342,7 +335,7 @@ class ModelPT(LightningModule, Model):
             config_path = f"{prefix_config}.{config_field}" if prefix_config else config_field
             module: ModelPT = getattr(self, name)
             for submodule_name, subconfig_path, submodule in module.named_nemo_modules(
-                prefix_name=attribute_path, prefix_config=config_path
+                    prefix_name=attribute_path, prefix_config=config_path
             ):
                 yield submodule_name, subconfig_path, submodule
 
@@ -385,14 +378,14 @@ class ModelPT(LightningModule, Model):
 
     @classmethod
     def restore_from(
-        cls,
-        restore_path: str,
-        override_config_path: Optional[Union[OmegaConf, str]] = None,
-        map_location: Optional[torch.device] = None,
-        strict: bool = True,
-        return_config: bool = False,
-        save_restore_connector: SaveRestoreConnector = None,
-        trainer: Optional[Trainer] = None,
+            cls,
+            restore_path: str,
+            override_config_path: Optional[Union[OmegaConf, str]] = None,
+            map_location: Optional[torch.device] = None,
+            strict: bool = True,
+            return_config: bool = False,
+            save_restore_connector: SaveRestoreConnector = None,
+            trainer: Optional[Trainer] = None,
     ):
         """
         Restores model instance (weights and configuration) from .nemo file.
@@ -444,13 +437,13 @@ class ModelPT(LightningModule, Model):
 
     @classmethod
     def load_from_checkpoint(
-        cls,
-        checkpoint_path: str,
-        *args,
-        map_location: Optional[Union[Dict[str, str], str, torch.device, int, Callable]] = None,
-        hparams_file: Optional[str] = None,
-        strict: bool = True,
-        **kwargs,
+            cls,
+            checkpoint_path: str,
+            *args,
+            map_location: Optional[Union[Dict[str, str], str, torch.device, int, Callable]] = None,
+            hparams_file: Optional[str] = None,
+            strict: bool = True,
+            **kwargs,
     ):
         """
         Loads ModelPT from checkpoint, with some maintenance of restoration.
@@ -559,7 +552,7 @@ class ModelPT(LightningModule, Model):
                 self._test_names = ['test_{}_'.format(idx) for idx in range(len(self._test_dl))]
 
     def setup_optimization(
-        self, optim_config: Optional[Union[DictConfig, Dict]] = None, optim_kwargs: Optional[Dict[str, Any]] = None,
+            self, optim_config: Optional[Union[DictConfig, Dict]] = None, optim_kwargs: Optional[Dict[str, Any]] = None,
     ):
         """Prepares an optimizer from a string name and its optional config parameters.
 
@@ -617,14 +610,14 @@ class ModelPT(LightningModule, Model):
                     optim_config['sched']['t_num_workers'] = self._trainer.num_devices * self._trainer.num_nodes
                 else:
                     optim_config['sched']['t_num_workers'] = (
-                        self._trainer.num_devices * self._trainer.num_nodes
-                    ) / app_state.model_parallel_size
+                                                                     self._trainer.num_devices * self._trainer.num_nodes
+                                                             ) / app_state.model_parallel_size
             else:
                 optim_config['sched']['max_steps'] = self._trainer.max_steps
 
         # Force into DictConfig from nested structure
         optim_config = OmegaConf.create(optim_config)
-        # Get back nested dict so we its mutable
+        # Get back nested dict so that its mutable
         optim_config = OmegaConf.to_container(optim_config, resolve=True)
 
         # Extract scheduler config if inside optimizer config
@@ -714,7 +707,7 @@ class ModelPT(LightningModule, Model):
             self._optimizer = optimizer
 
         # Try to instantiate scheduler for optimizer
-        self._scheduler = prepare_lr_scheduler(
+        self._scheduler = optim.prepare_lr_scheduler(
             optimizer=self._optimizer, scheduler_config=scheduler_config, train_dataloader=self._train_dl
         )
 
@@ -818,27 +811,27 @@ class ModelPT(LightningModule, Model):
         self.propagate_model_guid()
         if stage == 'fit':
             train_deferred_setup = (
-                'train_ds' in self._cfg
-                and self._cfg.train_ds is not None
-                and self._cfg.train_ds.get('defer_setup', False)
+                    'train_ds' in self._cfg
+                    and self._cfg.train_ds is not None
+                    and self._cfg.train_ds.get('defer_setup', False)
             )
             if self.train_dataloader() is None and train_deferred_setup:
                 self.setup_training_data(self._cfg.train_ds)
 
         if stage in ('fit', 'validate'):
             val_deferred_setup = (
-                'validation_ds' in self._cfg
-                and self._cfg.validation_ds is not None
-                and self._cfg.validation_ds.get('defer_setup', False)
+                    'validation_ds' in self._cfg
+                    and self._cfg.validation_ds is not None
+                    and self._cfg.validation_ds.get('defer_setup', False)
             )
             if self.val_dataloader() is None and val_deferred_setup:
                 self.setup_multiple_validation_data(val_data_config=self._cfg.validation_ds)
 
         if stage == 'test':
             test_deferred_setup = (
-                'test_ds' in self._cfg
-                and self._cfg.test_ds is not None
-                and self._cfg.test_ds.get('defer_setup', False)
+                    'test_ds' in self._cfg
+                    and self._cfg.test_ds is not None
+                    and self._cfg.test_ds.get('defer_setup', False)
             )
             if self.test_dataloader() is None and test_deferred_setup:
                 self.setup_multiple_test_data(test_data_config=self._cfg.test_ds)
@@ -1051,7 +1044,7 @@ class ModelPT(LightningModule, Model):
             return output_dict
 
     def multi_validation_epoch_end(
-        self, outputs: List[Dict[str, torch.Tensor]], dataloader_idx: int = 0
+            self, outputs: List[Dict[str, torch.Tensor]], dataloader_idx: int = 0
     ) -> Optional[Dict[str, Dict[str, torch.Tensor]]]:
         """
         Adds support for multiple validation datasets. Should be overriden by subclass,
@@ -1075,7 +1068,7 @@ class ModelPT(LightningModule, Model):
         )
 
     def multi_test_epoch_end(
-        self, outputs: List[Dict[str, torch.Tensor]], dataloader_idx: int = 0
+            self, outputs: List[Dict[str, torch.Tensor]], dataloader_idx: int = 0
     ) -> Optional[Dict[str, Dict[str, torch.Tensor]]]:
         """
         Adds support for multiple test datasets. Should be overriden by subclass,
@@ -1263,8 +1256,8 @@ class ModelPT(LightningModule, Model):
                     if hasattr(self, 'trainer') and self.trainer is not None:
                         trainer = self.trainer
                         if (
-                            hasattr(trainer, 'resume_from_checkpoint')
-                            and trainer._checkpoint_connector.resume_checkpoint_path is not None
+                                hasattr(trainer, 'resume_from_checkpoint')
+                                and trainer._checkpoint_connector.resume_checkpoint_path is not None
                         ):
                             print(
                                 "Model training is being resumed via Pytorch Lightning.\n"
@@ -1356,11 +1349,11 @@ class ModelPT(LightningModule, Model):
 
     @classmethod
     def extract_state_dict_from(
-        cls,
-        restore_path: str,
-        save_dir: str,
-        split_by_module: bool = False,
-        save_restore_connector: SaveRestoreConnector = None,
+            cls,
+            restore_path: str,
+            save_dir: str,
+            split_by_module: bool = False,
+            save_restore_connector: SaveRestoreConnector = None,
     ):
         """
         Extract the state dict(s) from a provided .nemo tarfile and save it to a directory.
@@ -1582,9 +1575,9 @@ class ModelPT(LightningModule, Model):
         # Check len(self._validation_dl) > 1 as sometimes single dataloader can be in a list: [<Dataloader obj>] when ds_item in
         # config has 1 item passed in a list
         if (
-            self._validation_dl is not None
-            and isinstance(self._validation_dl, (list, tuple))
-            and len(self._validation_dl) > 1
+                self._validation_dl is not None
+                and isinstance(self._validation_dl, (list, tuple))
+                and len(self._validation_dl) > 1
         ):
             for _ in range(len(self._validation_dl)):
                 self._validation_step_outputs.append([])
@@ -1701,9 +1694,9 @@ class ModelPT(LightningModule, Model):
         # should fire only once, on the very first batch of training and never again
         if not hasattr(self, '_freeze_cfg'):
             if (
-                hasattr(self.cfg, 'freeze_updates')
-                and self.cfg.freeze_updates is not None
-                and self.cfg.freeze_updates.get('enabled', False)
+                    hasattr(self.cfg, 'freeze_updates')
+                    and self.cfg.freeze_updates is not None
+                    and self.cfg.freeze_updates.get('enabled', False)
             ):
                 setattr(self, '_freeze_cfg', OmegaConf.to_container(self.cfg.freeze_updates))
                 self._freeze_cfg['is_frozen'] = {k: False for k in self._freeze_cfg['modules'].keys()}

@@ -4,7 +4,7 @@ import os
 from helpers import *
 import torch
 from pydub import AudioSegment
-from pipeline.model import NeuralDiarizer
+from pipeline.asr.models import NeuralDiarizer
 import torch.multiprocessing as mp
 
 mp.set_start_method('spawn', force=True)

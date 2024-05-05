@@ -1,21 +1,55 @@
+import copy
+import inspect
+import io
+import os
 import random
-
-from pipeline.segment import AudioSegment
+import subprocess
 from tempfile import NamedTemporaryFile
-from typing import List
+from typing import Any, List, Optional, Union
 
 import librosa
 import numpy as np
 import soundfile as sf
+from scipy import signal
 
+from pipeline.asr.preprocessing.segment import AudioSegment
+from pipeline.common.preprocessing import collections, parsers
+from pipeline.core_classes.dataset import IterableDataset
+
+# TODO @blisc: Perhaps refactor instead of import guarding
+HAVE_OMEGACONG_WEBDATASET = True
+try:
+    import webdataset as wds
+    from omegaconf import DictConfig, OmegaConf
+except ModuleNotFoundError:
+    from nemo.utils.exceptions import LightningNotInstalledException
+
+    HAVE_OMEGACONG_WEBDATASET = False
 
 try:
-    import numba_utils
+    from nemo.collections.asr.parts.utils import numba_utils
 
     HAVE_NUMBA = True
 except (ImportError, ModuleNotFoundError):
     HAVE_NUMBA = False
 
+
+def read_one_audiosegment(manifest, target_sr, tarred_audio=False, audio_dataset=None):
+    if tarred_audio:
+        if audio_dataset is None:
+            raise TypeError("Expected augmentation dataset but got None")
+        audio_file, file_id, manifest_entry = next(audio_dataset)
+
+        offset = 0 if manifest_entry.offset is None else manifest_entry.offset
+        duration = 0 if manifest_entry.duration is None else manifest_entry.duration
+
+    else:
+        audio_record = random.sample(manifest.data, 1)[0]
+        audio_file = audio_record.audio_file
+        offset = 0 if audio_record.offset is None else audio_record.offset
+        duration = 0 if audio_record.duration is None else audio_record.duration
+
+    return AudioSegment.from_file(audio_file, target_sr=target_sr, offset=offset, duration=duration)
 
 
 class Perturbation(object):
@@ -93,6 +127,7 @@ class SpeedPerturbation(Perturbation):
         data._samples = librosa.core.resample(
             data._samples, orig_sr=self._sr, target_sr=new_sr, res_type=self._res_type
         )
+
 
 class TimeStretchPerturbation(Perturbation):
     """
@@ -201,6 +236,46 @@ class TimeStretchPerturbation(Perturbation):
 
         data._samples = y_stretch
 
+
+class SilencePerturbation(Perturbation):
+    """
+    Applies random silence at the start and/or end of the audio.
+
+    Args:
+        min_start_silence_secs (float): Min start silence level in secs
+        max_start_silence_secs (float): Max start silence level in secs
+        min_end_silence_secs (float): Min end silence level in secs
+        max_end_silence_secs (float): Max end silence level in secs
+        rng (int): Random seed. Default is None
+        value: (float): value representing silence to be added to audio array.
+    """
+
+    def __init__(
+            self,
+            min_start_silence_secs: float = 0,
+            max_start_silence_secs: float = 0,
+            min_end_silence_secs: float = 0,
+            max_end_silence_secs: float = 0,
+            rng: int = None,
+            value: float = 0,
+    ):
+        self._min_start_silence_secs = min_start_silence_secs
+        self._max_start_silence_secs = max_start_silence_secs
+        self._min_end_silence_secs = min_end_silence_secs
+        self._max_end_silence_secs = max_end_silence_secs
+
+        random.seed(rng) if rng else None
+        self._value = value
+
+    def perturb(self, data):
+        start_silence_len = random.uniform(self._min_start_silence_secs, self._max_start_silence_secs)
+        end_silence_len = random.uniform(self._min_end_silence_secs, self._max_end_silence_secs)
+        start = np.full((int(start_silence_len * data.sample_rate),), self._value)
+        end = np.full((int(end_silence_len * data.sample_rate),), self._value)
+
+        data._samples = np.concatenate([start, data._samples, end])
+
+
 class GainPerturbation(Perturbation):
     """
     Applies random gain to the audio.
@@ -220,44 +295,6 @@ class GainPerturbation(Perturbation):
         gain = random.uniform(self._min_gain_dbfs, self._max_gain_dbfs)
         data._samples = data._samples * (10.0 ** (gain / 20.0))
 
-class SilencePerturbation(Perturbation):
-    """
-    Applies random silence at the start and/or end of the audio.
-
-    Args:
-        min_start_silence_secs (float): Min start silence level in secs
-        max_start_silence_secs (float): Max start silence level in secs
-        min_end_silence_secs (float): Min end silence level in secs
-        max_end_silence_secs (float): Max end silence level in secs
-        rng (int): Random seed. Default is None
-        value: (float): value representing silence to be added to audio array.
-    """
-
-    def __init__(
-        self,
-        min_start_silence_secs: float = 0,
-        max_start_silence_secs: float = 0,
-        min_end_silence_secs: float = 0,
-        max_end_silence_secs: float = 0,
-        rng: int = None,
-        value: float = 0,
-    ):
-        self._min_start_silence_secs = min_start_silence_secs
-        self._max_start_silence_secs = max_start_silence_secs
-        self._min_end_silence_secs = min_end_silence_secs
-        self._max_end_silence_secs = max_end_silence_secs
-
-        random.seed(rng) if rng else None
-        self._value = value
-
-    def perturb(self, data):
-        start_silence_len = random.uniform(self._min_start_silence_secs, self._max_start_silence_secs)
-        end_silence_len = random.uniform(self._min_end_silence_secs, self._max_end_silence_secs)
-        start = np.full((int(start_silence_len * data.sample_rate),), self._value)
-        end = np.full((int(end_silence_len * data.sample_rate),), self._value)
-
-        data._samples = np.concatenate([start, data._samples, end])
-
 
 class ImpulsePerturbation(Perturbation):
     """
@@ -273,13 +310,13 @@ class ImpulsePerturbation(Perturbation):
     """
 
     def __init__(
-        self,
-        manifest_path=None,
-        audio_tar_filepaths=None,
-        shuffle_n=128,
-        normalize_impulse=False,
-        shift_impulse=False,
-        rng=None,
+            self,
+            manifest_path=None,
+            audio_tar_filepaths=None,
+            shuffle_n=128,
+            normalize_impulse=False,
+            shift_impulse=False,
+            rng=None,
     ):
         self._manifest = collections.ASRAudioText(manifest_path, parser=parsers.make_parser([]), index_by_file_id=True)
         self._audiodataset = None
@@ -359,6 +396,7 @@ class ShiftPerturbation(Perturbation):
             data._samples[:-shift_samples] = data._samples[shift_samples:]
             data._samples[-shift_samples:] = 0
 
+
 class NoisePerturbation(Perturbation):
     """
     Perturbation that adds noise to input audio.
@@ -375,15 +413,15 @@ class NoisePerturbation(Perturbation):
     """
 
     def __init__(
-        self,
-        manifest_path=None,
-        min_snr_db=10,
-        max_snr_db=50,
-        max_gain_db=300.0,
-        rng=None,
-        audio_tar_filepaths=None,
-        shuffle_n=100,
-        orig_sr=16000,
+            self,
+            manifest_path=None,
+            min_snr_db=10,
+            max_snr_db=50,
+            max_gain_db=300.0,
+            rng=None,
+            audio_tar_filepaths=None,
+            shuffle_n=100,
+            orig_sr=16000,
     ):
         self._manifest = collections.ASRAudioText(manifest_path, parser=parsers.make_parser([]), index_by_file_id=True)
         self._audiodataset = None
@@ -461,7 +499,7 @@ class NoisePerturbation(Perturbation):
 
         if noise._samples.shape[0] < data._samples.shape[0]:
             noise_idx = random.randint(0, data._samples.shape[0] - noise._samples.shape[0])
-            data._samples[noise_idx : noise_idx + noise._samples.shape[0]] += noise._samples
+            data._samples[noise_idx: noise_idx + noise._samples.shape[0]] += noise._samples
 
         else:
             data._samples += noise._samples
@@ -508,10 +546,10 @@ class NoisePerturbation(Perturbation):
             noise_samples *= 10.0 ** (noise_gain_db / 20.0)
 
             if noise_samples.shape[0] > data._samples.shape[0]:
-                noise_samples = noise_samples[0 : data._samples.shape[0]]
+                noise_samples = noise_samples[0: data._samples.shape[0]]
 
             noise_idx = random.randint(0, data._samples.shape[0] - noise_samples.shape[0])
-            data._samples[noise_idx : noise_idx + noise_samples.shape[0]] += noise_samples
+            data._samples[noise_idx: noise_idx + noise_samples.shape[0]] += noise_samples
 
 
 class NoisePerturbationWithNormalization(Perturbation):
@@ -979,6 +1017,7 @@ class RandomSegmentPerturbation(Perturbation):
         end_time = start_time + self._duration_sec
         data.subsegment(start_time=start_time, end_time=end_time)
 
+
 perturbation_types = {
     "speed": SpeedPerturbation,
     "time_stretch": TimeStretchPerturbation,
@@ -993,6 +1032,16 @@ perturbation_types = {
     "transcode_aug": TranscodePerturbation,
     "random_segment": RandomSegmentPerturbation,
 }
+
+
+def register_perturbation(name: str, perturbation: Perturbation):
+    if name in perturbation_types.keys():
+        raise KeyError(
+            f"Perturbation with the name {name} exists. " f"Type of perturbation : {perturbation_types[name]}."
+        )
+
+    perturbation_types[name] = perturbation
+
 
 class AudioAugmentor(object):
     def __init__(self, perturbations=None, rng=None):
@@ -1016,8 +1065,234 @@ class AudioAugmentor(object):
         ptbs = []
         for p in config:
             if p['aug_type'] not in perturbation_types:
-                print("%s perturbation not known. Skipping.", p['aug_type'])
+                logging.warning("%s perturbation not known. Skipping.", p['aug_type'])
                 continue
             perturbation = perturbation_types[p['aug_type']]
             ptbs.append((p['prob'], perturbation(**p['cfg'])))
         return cls(perturbations=ptbs)
+
+
+def process_augmentations(augmenter, global_rank=0, world_size=1) -> Optional[AudioAugmentor]:
+    """Process list of online data augmentations.
+    Accepts either an AudioAugmentor object with pre-defined augmentations,
+    or a dictionary that points to augmentations that have been defined.
+    If a dictionary is passed, must follow the below structure:
+    Dict[str, Dict[str, Any]]: Which refers to a dictionary of string
+    names for augmentations, defined in `asr/parts/perturb.py`.
+    The inner dictionary may contain key-value arguments of the specific
+    augmentation, along with an essential key `prob`. `prob` declares the
+    probability of the augmentation being applied, and must be a float
+    value in the range [0, 1].
+    # Example in YAML config file
+    Augmentations are generally applied only during training, so we can add
+    these augmentations to our yaml config file, and modify the behaviour
+    for training and evaluation.
+    ```yaml
+    AudioToSpeechLabelDataLayer:
+        ...  # Parameters shared between train and evaluation time
+        train:
+            augmentor:
+                shift:
+                    prob: 0.5
+                    min_shift_ms: -5.0
+                    max_shift_ms: 5.0
+                white_noise:
+                    prob: 1.0
+                    min_level: -90
+                    max_level: -46
+                ...
+        eval:
+            ...
+    ```
+    Then in the training script,
+    ```python
+    import copy
+    from ruamel.yaml import YAML
+    yaml = YAML(typ="safe")
+    with open(model_config) as f:
+        params = yaml.load(f)
+    # Train Config for Data Loader
+    train_dl_params = copy.deepcopy(params["AudioToTextDataLayer"])
+    train_dl_params.update(params["AudioToTextDataLayer"]["train"])
+    del train_dl_params["train"]
+    del train_dl_params["eval"]
+    data_layer_train = nemo_asr.AudioToTextDataLayer(
+        ...,
+        **train_dl_params,
+    )
+    # Evaluation Config for Data Loader
+    eval_dl_params = copy.deepcopy(params["AudioToTextDataLayer"])
+    eval_dl_params.update(params["AudioToTextDataLayer"]["eval"])
+    del eval_dl_params["train"]
+    del eval_dl_params["eval"]
+    data_layer_eval = nemo_asr.AudioToTextDataLayer(
+        ...,
+        **eval_dl_params,
+    )
+    ```
+    # Registering your own Augmentations
+    To register custom augmentations to obtain the above convenience of
+    the declaring the augmentations in YAML, you can put additional keys in
+    `perturbation_types` dictionary as follows.
+    ```python
+    from nemo.collections.asr.parts import perturb
+    # Define your own perturbation here
+    class CustomPerturbation(perturb.Perturbation):
+        ...
+    perturb.register_perturbation(name_of_perturbation, CustomPerturbation)
+    ```
+    Args:
+        augmenter: AudioAugmentor object or
+            dictionary of str -> kwargs (dict) which is parsed and used
+            to initialize an AudioAugmentor.
+            Note: It is crucial that each individual augmentation has
+            a keyword `prob`, that defines a float probability in the
+            the range [0, 1] of this augmentation being applied.
+            If this keyword is not present, then the augmentation is
+            disabled and a warning is logged.
+    Returns: AudioAugmentor object
+    """
+    if augmenter is None:
+        return None
+
+    if isinstance(augmenter, AudioAugmentor):
+        return augmenter
+
+    augmenter_types = {dict}
+    if HAVE_OMEGACONG_WEBDATASET:
+        augmenter_types = {dict, DictConfig}
+    if not type(augmenter) in augmenter_types:
+        raise ValueError("Cannot parse augmenter. Must be a dict or an AudioAugmentor object ")
+
+    if HAVE_OMEGACONG_WEBDATASET and isinstance(augmenter, DictConfig):
+        augmenter = OmegaConf.to_container(augmenter, resolve=True)
+
+    augmenter = copy.deepcopy(augmenter)
+
+    augmentations = []
+    for augment_name, augment_kwargs in augmenter.items():
+        prob = augment_kwargs.get('prob', None)
+
+        if prob is None:
+            raise KeyError(
+                f'Augmentation "{augment_name}" will not be applied as '
+                f'keyword argument "prob" was not defined for this augmentation.'
+            )
+
+        else:
+            _ = augment_kwargs.pop('prob')
+
+            if prob < 0.0 or prob > 1.0:
+                raise ValueError("`prob` must be a float value between 0 and 1.")
+
+            try:
+                augmentation_class = perturbation_types[augment_name]
+                if 'global_rank' in inspect.signature(augmentation_class).parameters:
+                    augment_kwargs['global_rank'] = global_rank
+                if 'world_size' in inspect.signature(augmentation_class).parameters:
+                    augment_kwargs['world_size'] = world_size
+                augmentation = augmentation_class(**augment_kwargs)
+                augmentations.append([prob, augmentation])
+            except KeyError:
+                raise KeyError(f"Invalid perturbation name. Allowed values : {perturbation_types.keys()}")
+
+    augmenter = AudioAugmentor(perturbations=augmentations)
+    return augmenter
+
+
+class AugmentationDataset(IterableDataset):
+    """
+        A class that loads tarred audio files and cycles over the files in the dataset.
+        Accepts a single comma-separated JSON manifest file (in the same style as for the AudioToCharDataset/AudioToBPEDataset),
+        as well as the path(s) to the tarball(s) containing the wav files. Each line of the manifest should
+        contain the information for one audio file, including at least the transcript and name of the audio
+        file within the tarball.
+        Valid formats for the audio_tar_filepaths argument include:
+        (1) a single string that can be brace-expanded, e.g. 'path/to/audio.tar' or 'path/to/audio_{1..100}.tar.gz', or
+        (2) a list of file paths that will not be brace-expanded, e.g. ['audio_1.tar', 'audio_2.tar', ...].
+        Note: For brace expansion in (1), there may be cases where `{x..y}` syntax cannot be used due to shell interference.
+        This occurs most commonly inside SLURM scripts. Therefore we provide a few equivalent replacements.
+        Supported opening braces - { <=> (, [, < and the special tag _OP_.
+        Supported closing braces - } <=> ), ], > and the special tag _CL_.
+        For SLURM based tasks, we suggest the use of the special tags for ease of use.
+        See the WebDataset documentation for more information about accepted data and input formats.
+    """
+
+    def __init__(
+            self,
+            manifest_path: str,
+            tar_filepaths: Union[str, List[str]],
+            shuffle_n: int = 128,
+            rank: int = 0,
+            world_size: int = 1,
+            shard_strategy: str = "replicate",
+    ):
+        # import here to avoid circular import error
+        from nemo.collections.asr.data.audio_to_text import expand_sharded_filepaths
+
+        self._manifest = collections.ASRAudioText(manifest_path, parser=parsers.make_parser([]), index_by_file_id=True)
+
+        tar_filepaths = expand_sharded_filepaths(
+            tar_filepaths, shard_strategy=shard_strategy, world_size=world_size, global_rank=rank
+        )
+
+        if not HAVE_OMEGACONG_WEBDATASET:
+            raise LightningNotInstalledException(self)
+        self.audio_dataset = wds.DataPipeline(
+            wds.SimpleShardList(urls=tar_filepaths),
+            wds.shuffle(shuffle_n),
+            wds.tarfile_to_samples(),
+            wds.rename(audio='wav;ogg;flac', key='__key__'),
+            wds.to_tuple('audio', 'key'),
+            self._loop_offsets,
+        )
+
+    def __len__(self):
+        return len(self._manifest)
+
+    def _loop_offsets(self, iterator):
+        """This function is used to iterate through utterances with different offsets for each file.
+        """
+
+        class TarredAudioLoopOffsets:
+            def __init__(self, collection):
+                self.iterator = iterator
+                self.collection = collection
+                self.current_fn = None
+                self.current_bytes = None
+                self.offset_id = 0
+
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                if self.current_fn is None:
+                    self.current_bytes, self.current_fn = next(self.iterator)
+                    self.offset_id = 0
+                else:
+                    offset_list = self.collection.mapping[self.current_fn]
+                    if len(offset_list) == self.offset_id + 1:
+                        self.current_bytes, self.current_fn = next(self.iterator)
+                        self.offset_id = 0
+                    else:
+                        self.offset_id += 1
+
+                return self.current_bytes, self.current_fn, self.offset_id
+
+        return TarredAudioLoopOffsets(self._manifest)
+
+    def __iter__(self):
+        audio_iter = iter(self.audio_dataset)
+
+        while True:
+            try:
+                audio_bytes, audio_filename, offset_id = next(audio_iter)
+                file_id, _ = os.path.splitext(os.path.basename(audio_filename))
+                manifest_idx = self._manifest.mapping[file_id][offset_id]
+                manifest_entry = self._manifest[manifest_idx]
+
+                # Convert audio bytes to IO stream for processing (for SoundFile to read)
+                audio_file = io.BytesIO(audio_bytes)
+                yield audio_file, file_id, manifest_entry
+            except StopIteration:
+                audio_iter = iter(self.audio_dataset)

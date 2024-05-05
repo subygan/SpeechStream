@@ -20,4 +20,5 @@ def run_diarization(job_id, user_id, prompt_template_id, audio_file_path, functi
 
 
 if __name__ == "__main__":
-    run_diarization(0, 0, 0, "/input/audio_record_1372.wav", "")
+
+    run_diarization(0, 0, 0, "/input/audio1.wav", "")

@@ -13,9 +13,9 @@ from pytorch_lightning.utilities import rank_zero_only
 from tqdm import tqdm
 
 from pipeline.der import score_labels
-from nemo.collections.asr.models.classification_models import EncDecClassificationModel
-from nemo.collections.asr.models.label_models import EncDecSpeakerLabelModel
-from nemo.collections.asr.parts.mixins.mixins import DiarizationMixin
+from pipeline.asr.models.classification_models import EncDecClassificationModel
+from pipeline.asr.models.label_models import EncDecSpeakerLabelModel
+from pipeline.asr.mixins import DiarizationMixin
 from pipeline.speaker_utils import (
     audio_rttm_map,
     get_embs_and_timestamps,
@@ -32,8 +32,8 @@ from pipeline.vad_utils import (
     get_vad_stream_status,
     prepare_manifest,
 )
-from nemo.core.classes import Model
-from nemo.utils import model_utils
+from pipeline.core_classes.common import Model
+from pipeline.utils import model_utils
 
 try:
     from torch.cuda.amp import autocast

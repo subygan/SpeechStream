@@ -1,10 +1,12 @@
 import glob
 import json
+import math
 import multiprocessing
 import os
 from itertools import repeat
 from pathlib import Path
 from typing import Dict, Tuple
+import librosa
 
 import torch
 from tqdm import tqdm
@@ -537,6 +539,12 @@ def generate_vad_segment_table(
             generate_vad_segment_table_per_file(vad_pred_filepath, per_args)
 
     return out_dir
+
+def generate_vad_segment_table_per_file_star(args):
+    """
+    A workaround for tqdm with starmap of multiprocessing
+    """
+    return generate_vad_segment_table_per_file(*args)
 
 def get_vad_stream_status(data: list) -> list:
     """
